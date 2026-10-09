@@ -3,7 +3,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.services.cache import get_revenue_summary
+from app.services.properties import get_tenant_properties
 from app.core.auth import authenticate_request as get_current_user
+from app.models.auth import AuthenticatedUser
 
 router = APIRouter()
 
@@ -36,3 +38,15 @@ async def get_dashboard_summary(
         "currency": revenue_data['currency'],
         "reservations_count": revenue_data['count']
     }
+
+
+@router.get("/dashboard/properties")
+async def get_dashboard_properties(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Return only properties belonging to the authenticated user's tenant."""
+    tenant_id = current_user.tenant_id
+    if not tenant_id:
+        raise HTTPException(status_code=403, detail="Authenticated tenant is required")
+
+    return {"properties": await get_tenant_properties(tenant_id)}
