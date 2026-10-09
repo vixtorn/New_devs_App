@@ -13,7 +13,7 @@ if (typeof window !== 'undefined') {
 
 // Enhanced user type that includes tenant_id for compatibility
 interface EnhancedUser extends User {
-  tenant_id?: string;
+  tenant_id?: string | null;
 }
 
 interface AuthContextType {
@@ -45,30 +45,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const enrichUserWithTenant = useCallback((session: Session): EnhancedUser => {
     const enhancedUser = session.user as EnhancedUser;
 
-    // Extract tenant_id with priority: JWT claims > app_metadata > user_metadata
-    let tenant_id: string | null = null;
-    let source = 'none';
-
-    // 1. First try JWT claims (added by custom_access_token_hook)
     const jwtTenantId = extractTenantFromSession(session);
-    if (jwtTenantId) {
-      tenant_id = jwtTenantId;
-      source = 'jwt_claims';
-    }
+    const sessionUserTenantId = enhancedUser.tenant_id;
+    const appMetadataTenantId = enhancedUser.app_metadata?.tenant_id;
+    const userMetadataTenantId = enhancedUser.user_metadata?.tenant_id;
+    const tenant_id = jwtTenantId || sessionUserTenantId || appMetadataTenantId || userMetadataTenantId || null;
+    const source = jwtTenantId
+      ? 'jwt_claims'
+      : sessionUserTenantId
+        ? 'session_user'
+        : appMetadataTenantId
+          ? 'app_metadata'
+          : userMetadataTenantId
+            ? 'user_metadata'
+            : 'none';
 
-    // 2. Fallback to app_metadata  
-    if (!tenant_id && enhancedUser.app_metadata?.tenant_id) {
-      tenant_id = enhancedUser.app_metadata.tenant_id;
-      source = 'app_metadata';
-    }
-
-    // 3. Fallback to user_metadata
-    if (!tenant_id && enhancedUser.user_metadata?.tenant_id) {
-      tenant_id = enhancedUser.user_metadata.tenant_id;
-      source = 'user_metadata';
-    }
-
-    // Add tenant_id as a direct property for backward compatibility
+    // Keep the authenticated backend user context available to the UI.
     enhancedUser.tenant_id = tenant_id;
 
     if (import.meta.env.DEV) {
@@ -90,22 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const enrichUserFallback = useCallback((user: User): EnhancedUser => {
     const enhancedUser = user as EnhancedUser;
 
-    // Extract tenant_id from metadata only (no JWT claims available)
-    let tenant_id: string | null = null;
-    let source = 'none';
+    const sessionUserTenantId = enhancedUser.tenant_id;
+    const appMetadataTenantId = enhancedUser.app_metadata?.tenant_id;
+    const userMetadataTenantId = enhancedUser.user_metadata?.tenant_id;
+    const tenant_id = sessionUserTenantId || appMetadataTenantId || userMetadataTenantId || null;
+    const source = sessionUserTenantId
+      ? 'session_user'
+      : appMetadataTenantId
+        ? 'app_metadata'
+        : userMetadataTenantId
+          ? 'user_metadata'
+          : 'none';
 
-    // Try app_metadata first
-    if (enhancedUser.app_metadata?.tenant_id) {
-      tenant_id = enhancedUser.app_metadata.tenant_id;
-      source = 'app_metadata';
-    }
-    // Fallback to user_metadata
-    else if (enhancedUser.user_metadata?.tenant_id) {
-      tenant_id = enhancedUser.user_metadata.tenant_id;
-      source = 'user_metadata';
-    }
-
-    // Add tenant_id as a direct property for backward compatibility
     enhancedUser.tenant_id = tenant_id;
 
     if (import.meta.env.DEV) {
