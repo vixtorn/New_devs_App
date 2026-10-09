@@ -1,0 +1,25 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# JavaScript/build artifacts
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Local logs and editor/OS files
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
